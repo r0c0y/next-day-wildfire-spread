@@ -156,18 +156,14 @@ python -m src.dl_arch_diagram                     # architecture diagram
 
 ### Results
 
-**How the score grew.** Each step lets the model see more of the patch around a pixel. Test PR AUC, mean ±
-standard deviation over seeds 0, 1 and 2:
+**How the score grew.** Each step lets the model see more of the patch around a pixel. Test PR AUC, mean over
+seeds 0, 1 and 2 (standard deviations in the table below):
 
 ```mermaid
 flowchart LR
-    X["<b>XGBoost</b> (Phase 1)<br/>one pixel at a time,<br/>hand-made neighbourhood features<br/><b>0.255 ± 0.002</b>"]
-    C["<b>CNN</b><br/>sees 9 × 9 px<br/><b>0.249 ± 0.010</b>"]
-    U3["<b>U-Net, 3 levels</b><br/>sees 44 × 44 px<br/><b>0.275 ± 0.008</b>"]
-    U4["<b>U-Net, 4 levels (final)</b><br/>sees the whole 64 × 64 patch<br/><b>0.344 ± 0.007</b>"]
-    X -->|"learn features<br/>from the patch"| C
-    C -->|"skip connections,<br/>focal loss"| U3
-    U3 -->|"one more level"| U4
+    X["<b>XGBoost</b><br/>Phase 1, per pixel,<br/>hand-made features<br/><b>0.255</b>"] --> C["<b>CNN</b><br/>sees 9 × 9 px<br/><b>0.249</b>"]
+    C --> U3["<b>U-Net, 3 levels</b><br/>sees 44 × 44 px<br/><b>0.275</b>"]
+    U3 --> U4["<b>Final U-Net, 4 levels</b><br/>sees all 64 × 64 px<br/><b>0.344</b>"]
     style U4 stroke-width:3px
 ```
 

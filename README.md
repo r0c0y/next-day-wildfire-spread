@@ -156,7 +156,22 @@ python -m src.dl_arch_diagram                     # architecture diagram
 
 ### Results
 
-Test split, mean ± standard deviation over seeds 0, 1 and 2. Bold = best per column.
+**How the score grew.** Each step lets the model see more of the patch around a pixel. Test PR AUC, mean ±
+standard deviation over seeds 0, 1 and 2:
+
+```mermaid
+flowchart LR
+    X["<b>XGBoost</b> (Phase 1)<br/>one pixel at a time,<br/>hand-made neighbourhood features<br/><b>0.255 ± 0.002</b>"]
+    C["<b>CNN</b><br/>sees 9 × 9 px<br/><b>0.249 ± 0.010</b>"]
+    U3["<b>U-Net, 3 levels</b><br/>sees 44 × 44 px<br/><b>0.275 ± 0.008</b>"]
+    U4["<b>U-Net, 4 levels (final)</b><br/>sees the whole 64 × 64 patch<br/><b>0.344 ± 0.007</b>"]
+    X -->|"learn features<br/>from the patch"| C
+    C -->|"skip connections,<br/>focal loss"| U3
+    U3 -->|"one more level"| U4
+    style U4 stroke-width:3px
+```
+
+Bold = best per column.
 
 | Model | PR AUC | ROC AUC | F1 | Recall @ 1% FPR | Recall @ 5% FPR |
 |---|---:|---:|---:|---:|---:|
@@ -165,9 +180,26 @@ Test split, mean ± standard deviation over seeds 0, 1 and 2. Bold = best per co
 | CNN (weighted BCE) | 0.249 ± 0.010 | 0.878 ± 0.011 | 0.335 ± 0.008 | 0.378 ± 0.009 | 0.653 ± 0.006 |
 | XGBoost (Phase 1) | 0.255 ± 0.002 | 0.905 ± 0.001 | 0.330 ± 0.000 | 0.388 ± 0.001 | 0.673 ± 0.001 |
 
-The final U-Net beats XGBoost for every seed when both are scored on the same fire events (+0.080 to +0.094),
-and (seed 0) also on test locations not seen in training (+0.092). Details: `reports/dl/checks/` and the
-technical validation section of the paper.
+**Can we trust the final U-Net?** Differences are paired: both models are scored on the same 257 test fire
+events, resampled 1,000 times; 95% intervals in brackets.
+
+| Question | Check | Answer |
+|---|---|---|
+| Is the gain seed luck? | 3 seeds | **No.** Every seed (0.338, 0.343, 0.351) is far above XGBoost (0.255). |
+| Does it beat XGBoost on the same fires? | paired bootstrap, per seed | **Yes.** +0.080 (0.058 to 0.113), +0.085 (0.059 to 0.122), +0.094 (0.078 to 0.118); better in 100% of resamples for every seed. |
+| Does it beat the CNN? | paired bootstrap, seed 0 | **Yes.** +0.079 (0.049 to 0.121). |
+| Does it only remember places? | 503 of 1,689 test patches have the same terrain as a training patch | **No.** New places 0.335, seen places 0.353; on new places still +0.092 (0.074 to 0.123) over XGBoost. |
+| Can its output be read as a fire probability? | reliability and Brier score after the prior-shift correction | **Not yet.** It ranks pixels well but its probabilities are too flat: the top 10% of pixels get 2.3% but burn at 10.6%. Recalibrate on eval first; PR AUC is not affected. |
+| Does the same seed give the same model? | same seed retrained on the GPU (3-level U-Net) | **No.** PR AUC moves by up to 0.02, so we report seed means, not single runs. |
+| Would more training data help? | 5% to 100% of training patches (3-level U-Net) | **Little.** 0.241 at 5%, then flat from 50% (0.273) to 100% (0.269). |
+
+<p align="center">
+  <img src="reports/dl/figures/dl_ci_events.png" width="55%" alt="Test PR AUC with 95% intervals over fire events">
+  <img src="reports/dl/figures/dl_calibration.png" width="40%" alt="Reliability diagram on test">
+</p>
+
+The last two checks ran before the 4-level model existed and were not repeated on it. Details:
+`reports/dl/checks/` and the technical validation section of the paper.
 
 **Augmentation** (`--aug`, focal U-Net, all runs on one Apple M3; mean ± std over seeds 0-2):
 
